@@ -35,3 +35,14 @@ add_executable(TCPEchoClient
         TCPEchoClient.c
         TCPClientUtility.c
         DieWithMessage.c)
+
+add_executable(TCPEchoServer
+        TCPEchoServer.c
+        TCPServerUtility.c
+        DieWithMessage.c
+        AddressUtility.c)
+
+add_executable(GetAddrInfo
+               GetAddrInfo.c
+               DieWithMessage.c
+               AddressUtility.c)
