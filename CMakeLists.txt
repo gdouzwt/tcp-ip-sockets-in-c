@@ -24,3 +24,14 @@ add_executable(TCPEchoServer4
         TCPServerUtility.c
         DieWithMessage.c
         AddressUtility.c)
+
+add_executable(TCPEchoServer6
+        TCPEchoServer6.c
+        TCPServerUtility.c
+        DieWithMessage.c
+        AddressUtility.c)
+
+add_executable(TCPEchoClient
+        TCPEchoClient.c
+        TCPClientUtility.c
+        DieWithMessage.c)

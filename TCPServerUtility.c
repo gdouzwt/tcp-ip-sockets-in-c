@@ -83,12 +83,12 @@ void HandleTCPClient(int clntSocket) {
     while (numBytesRcvd > 0) { // 0 indicates end of stream
         // Echo message back to client
         ssize_t numBytesSent = send(clntSocket, buffer, numBytesRcvd, 0);
-        printf("%s", buffer);
+        //printf("%s", buffer);
         if (numBytesSent < 0)
             DieWithSystemMessage("send() failed");
         else if (numBytesSent != numBytesRcvd)
             DieWithUserMessage("send()", "sent unexpected number of bytes");
-        memset(buffer, 0, sizeof(buffer));
+        //memset(buffer, 0, sizeof(buffer));
         // See if there is more data to receive
         numBytesRcvd = recv(clntSocket, buffer, BUFSIZE, 0);
         if (numBytesRcvd < 0)
