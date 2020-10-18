@@ -2,6 +2,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #include "Practical.h"
 
 int main(int argc, char *argv[]) {
@@ -51,8 +52,10 @@ int main(int argc, char *argv[]) {
         struct ip_mreq joinRequest;
         joinRequest.imr_multiaddr =
                 ((struct sockaddr_in *) multicastAddr->ai_addr)->sin_addr;
-        joinRequest.imr_interface.s_addr = 0;  // Let the system choose the i/f
-        printf("Joining IPv4 multicast group...\n");
+        //joinRequest.imr_interface.s_addr = 0;  // Let the system choose the i/f
+        char const *my_address = "192.168.1.1";
+        joinRequest.imr_interface.s_addr = inet_addr(my_address);  // 这样就可以根据网卡 ip 地址选择网卡了
+        printf("Joining IPv4 multicast group..., and what is going\n");
         if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                        &joinRequest, sizeof(joinRequest)) < 0)
             DieWithSystemMessage("setsockopt(IPV4_ADD_MEMBERSHIP) failed");

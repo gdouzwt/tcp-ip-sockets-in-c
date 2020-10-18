@@ -13,6 +13,8 @@ set(CMAKE_C_STANDARD 99)
 #SET(CMAKE_OBJCOPY "/home/test/openwrt/Toolchain/toolchain/bin/mipsel-openwrt-linux-objcopy")
 #SET(CMAKE_STRIP "/home/test/openwrt/Toolchain/toolchain/bin/mipsel-openwrt-linux-strip")
 
+
+
 include_directories(.)
 
 add_executable(TCPEchoClient4
@@ -46,3 +48,25 @@ add_executable(GetAddrInfo
                GetAddrInfo.c
                DieWithMessage.c
                AddressUtility.c)
+
+add_executable(UDPEchoClient
+               UDPEchoClient.c
+               DieWithMessage.c
+               AddressUtility.c)
+
+add_executable(UDPEchoServer
+               UDPEchoServer.c
+               DieWithMessage.c
+               AddressUtility.c)
+
+add_executable(TestSizes TestSizes.c)
+
+add_executable(MulticastReceiver
+               MulticastReceiver.c
+               DieWithMessage.c
+               AddressUtility.c)
+
+add_executable(JsonTest JsonTest.c)
+# set(CMAKE_C_FLAGS "-Werror=deprecated-declarations")
+target_link_libraries(JsonTest json-c)
+# target_compile_options(JsonTest PRIVATE "-Werror=deprecated-declarations")

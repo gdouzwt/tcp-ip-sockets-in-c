@@ -29,7 +29,7 @@ void HandleTCPClient(int clntSocket);
 int SetupTCPClientSocket(const char *server, const char *service);
 
 enum sizeConstants {
-    MAXSTRINGLENGTH = 128,
+    MAXSTRINGLENGTH = 256,
     BUFSIZE = 512,
 };
 
