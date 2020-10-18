@@ -64,9 +64,13 @@ add_executable(TestSizes TestSizes.c)
 add_executable(MulticastReceiver
                MulticastReceiver.c
                DieWithMessage.c
-               AddressUtility.c)
+               AddressUtility.c
+               aes.c)
+
+add_executable(encrypt encrypt.c)
 
 add_executable(JsonTest JsonTest.c)
 # set(CMAKE_C_FLAGS "-Werror=deprecated-declarations")
 target_link_libraries(JsonTest json-c)
+target_link_libraries(encrypt crypto)
 # target_compile_options(JsonTest PRIVATE "-Werror=deprecated-declarations")
