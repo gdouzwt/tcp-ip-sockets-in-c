@@ -1,0 +1,1 @@
+./configure -host=mipsel-openwrt-linux --prefix=/home/tao/Downloads/openwrt-sdk-ramips-mt7621_gcc-8.4.0_musl.Linux-x86_64/staging_dir/toolchain-mipsel_24kc_gcc-8.4.0_musl CC=mipsel-openwrt-linux-gcc CXX=mipsel-openwrt-linux-g++ --enable-shared=yes --enable-static=no
