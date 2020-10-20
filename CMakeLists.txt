@@ -13,8 +13,6 @@ set(CMAKE_C_STANDARD 99)
 #SET(CMAKE_OBJCOPY "/home/test/openwrt/Toolchain/toolchain/bin/mipsel-openwrt-linux-objcopy")
 #SET(CMAKE_STRIP "/home/test/openwrt/Toolchain/toolchain/bin/mipsel-openwrt-linux-strip")
 
-
-
 include_directories(.)
 
 add_executable(TCPEchoClient4
@@ -64,15 +62,18 @@ add_executable(TestSizes TestSizes.c)
 add_executable(MulticastReceiver
                MulticastReceiver.c
                DieWithMessage.c
-               AddressUtility.c
-               aes.c)
+               AddressUtility.c)
 
 add_executable(encrypt encrypt.c)
+target_link_libraries(encrypt crypto)
 
 add_executable(JsonTest JsonTest.c)
-# set(CMAKE_C_FLAGS "-Werror=deprecated-declarations")
 target_link_libraries(JsonTest json-c)
-target_link_libraries(encrypt crypto)
-# target_compile_options(JsonTest PRIVATE "-Werror=deprecated-declarations")
-add_executable(uboxDemo json_script-example.c)
+
+add_executable(uboxDemo uboxDemo.c)
 target_link_libraries(uboxDemo ubox)
+
+# set(CMAKE_C_FLAGS "-Werror=deprecated-declarations")
+# target_compile_options(JsonTest PRIVATE "-Werror=deprecated-declarations")
+
+

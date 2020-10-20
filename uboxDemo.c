@@ -7,7 +7,7 @@ int frequency = 5; //每隔5秒超时一次
 static void timeout_cb(struct uloop_timeout *t)
 {
     //do your work
-    puts("What is going on?\n");
+    puts("What is going on?");
     uloop_timeout_set(t, frequency * 1000);//设置下次的超时时间
 }
 
