@@ -73,6 +73,10 @@ target_link_libraries(JsonTest json-c)
 add_executable(uboxDemo uboxDemo.c)
 target_link_libraries(uboxDemo ubox)
 
+add_executable(client client.c DieWithMessage.c
+        AddressUtility.c)
+target_link_libraries(client ubox)
+
 # set(CMAKE_C_FLAGS "-Werror=deprecated-declarations")
 # target_compile_options(JsonTest PRIVATE "-Werror=deprecated-declarations")
 

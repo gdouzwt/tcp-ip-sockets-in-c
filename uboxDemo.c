@@ -11,8 +11,8 @@
 #include <libubox/usock.h>
 
 
-static struct uloop_fd server;
-static const char *port = "10000";
+static struct uloop_fd server;  // uloop 文件描述符
+static const char *port = "8888";  // 默认端口
 struct client *next_client = NULL;
 
 struct client {
@@ -87,7 +87,7 @@ static void server_cb(struct uloop_fd *fd, unsigned int events) {
         next_client = calloc(1, sizeof(*next_client));
 
     cl = next_client;
-    sfd = accept(server.fd, (struct sockaddr *) &cl->sin, &sl);
+    sfd = accept(fd->fd, (struct sockaddr *) &cl->sin, &sl);
     if (sfd < 0) {
         fprintf(stderr, "Accept failed\n");
         return;
