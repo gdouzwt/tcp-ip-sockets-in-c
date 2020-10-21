@@ -75,7 +75,9 @@ target_link_libraries(uboxDemo ubox)
 
 add_executable(client client.c DieWithMessage.c
         AddressUtility.c)
-target_link_libraries(client ubox)
+
+add_executable(uboxClient uboxClient.c)
+target_link_libraries(uboxClient ubox)
 
 # set(CMAKE_C_FLAGS "-Werror=deprecated-declarations")
 # target_compile_options(JsonTest PRIVATE "-Werror=deprecated-declarations")
