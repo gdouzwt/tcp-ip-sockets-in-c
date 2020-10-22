@@ -143,27 +143,30 @@ static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
         if (average < 18) { // (125 - level) / 1.2 > 90
             puts("need to be off");
             // 要关水了
-            snprintf(cmd_buf, sizeof(cmd_buf),
-                     "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}",
-                     "158d000234727c",
-                     "off",
-                     key_of_write);
-            printf("%s", "cmd to write");
-            puts(cmd_buf);
-            send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
-            puts("need to be off");
+            if (key_of_write != NULL) {
+                snprintf(cmd_buf, sizeof(cmd_buf),
+                         "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}",
+                         "158d000234727c",
+                         "off",
+                         key_of_write);
+                printf("%s", "cmd to write");
+                puts(cmd_buf);
+                send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
+            }
 
-        } else if (average > 72) {// (125 - level) / 1.2 < 30
+        } else if (average > 22) {// (125 - level) / 1.2 < 30
             // 要抽水了
-            snprintf(cmd_buf, sizeof(cmd_buf),
-                     "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}",
-                     "158d000234727c",
-                     "on",
-                     key_of_write);
-            printf("%s", "cmd to write");
-            puts(cmd_buf);
-            send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
-            puts("need to be on");
+            if (key_of_write != NULL) {
+                puts("need to be on");
+                snprintf(cmd_buf, sizeof(cmd_buf),
+                         "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}",
+                         "158d000234727c",
+                         "on",
+                         key_of_write);
+                printf("%s", "cmd to write");
+                puts(cmd_buf);
+                send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
+            }
         }
     }
     //printf("%s", buffer);
@@ -176,7 +179,7 @@ static void server_cb(struct uloop_fd *fd, unsigned int events) {
     int receivedLen = recvfrom(fd->fd, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *) &gateway_addr,
                                (socklen_t *) &addr_len);
     buffer[receivedLen] = '\0';
-    //puts(buffer);
+    puts(buffer);
 
     struct json_object *parsed_json;
     struct json_object *token;
@@ -223,7 +226,7 @@ static int run_server(void) {
         struct ip_mreq joinRequest;
         joinRequest.imr_multiaddr =
                 ((struct sockaddr_in *) multicastAddr->ai_addr)->sin_addr;
-        joinRequest.imr_interface.s_addr = 0;  // Let the system choose the i/f
+        //joinRequest.imr_interface.s_addr = 0;  // Let the system choose the i/f
         char const *my_address = "192.168.1.1";
         joinRequest.imr_interface.s_addr = inet_addr(my_address);  // 这样就可以根据网卡 ip 地址选择网卡了
         //printf("Joining IPv4 multicast group..., and what is going\n");
