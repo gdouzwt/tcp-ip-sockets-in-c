@@ -7,20 +7,19 @@
 #include <string.h>
 #include <unistd.h>
 #include <json-c/json.h>
-
 #include <libubox/ustream.h>
 #include <libubox/uloop.h>
 #include <libubox/usock.h>
 #include <openssl/evp.h>
 
 #define GROUP_SERVER_ADDR "224.0.0.50"
-#define GROUP_DISCOVER_PORT 4321
-#define GROUP_RECV_PORT 9898
 #define UDP_SEND_PORT 9898
 
+static char *const DoitWiFi_Device = "192.168.1.195";
+static char *const Lumi_Gateway = "192.168.1.145";
 static struct uloop_fd udp_server;
 static struct uloop_fd tcp_server;
-static  char *key_of_write;
+static char *key_of_write;
 int discover_sockfd = -1;
 struct sockaddr_in gateway_addr;
 static char *port = "9898";
@@ -28,9 +27,9 @@ static char buffer[512];
 char *converted;
 struct client *next_client = NULL;
 static double data[10];
-
-static unsigned char m_iv[16] = {0x17, 0x99, 0x6d, 0x09, 0x3d, 0x28, 0xdd, 0xb3, 0xba, 0x69, 0x5a, 0x2e, 0x6f, 0x58,
-                                 0x56, 0x2e};
+static const unsigned char m_iv[16] = {0x17, 0x99, 0x6d, 0x09, 0x3d, 0x28, 0xdd, 0xb3, 0xba, 0x69, 0x5a, 0x2e, 0x6f,
+                                       0x58,
+                                       0x56, 0x2e};
 static const char *key = "07wjrkc41typdvae";
 static int count = 0;
 
@@ -46,7 +45,6 @@ int comp(const void *a, const void *b) {
     else if (*(double *) a < *(double *) b) return -1;
     else return 0;
 }
-
 
 void encryptToken(const char *plaintext) {
 
@@ -85,8 +83,8 @@ void encryptToken(const char *plaintext) {
     EVP_EncryptUpdate(ctx, ciphertext, &cipher_length, (unsigned char *) plaintext, data_length);
     EVP_EncryptFinal_ex(ctx, ciphertext + cipher_length, &final_length);
 
-    converted = malloc(cipher_length*2 + 1);
-    for (i = 0; i < cipher_length; i++){
+    converted = malloc(cipher_length * 2 + 1);
+    for (i = 0; i < cipher_length; i++) {
         printf("%02X", ciphertext[i]);
         sprintf(&converted[i * 2], "%02X", ciphertext[i]);
     }
@@ -107,20 +105,19 @@ static void client_close(struct ustream *s) {
     free(cl);
 }
 
-
 static void send_msg_to_gateway(char *data_str, int32_t data_len) {
     if (-1 != discover_sockfd) {
         puts("WHAT THE FUCK is going on?");
         gateway_addr.sin_port = htons(UDP_SEND_PORT);
-        gateway_addr.sin_addr.s_addr = inet_addr("192.168.1.145");
-        int number = sendto(discover_sockfd, data_str, data_len, MSG_CMSG_CLOEXEC, (struct sockaddr *) &gateway_addr, sizeof(gateway_addr));
+        gateway_addr.sin_addr.s_addr = inet_addr(Lumi_Gateway);
+        int number = sendto(discover_sockfd, data_str, data_len, MSG_CMSG_CLOEXEC, (struct sockaddr *) &gateway_addr,
+                            sizeof(gateway_addr));
         printf("%d\n", number);
-        int receivedLen = recv(discover_sockfd, buffer, sizeof(buffer) - 1,MSG_DONTWAIT);
+        int receivedLen = recv(discover_sockfd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
         buffer[receivedLen] = '\0';
         puts(buffer);
         memset(buffer, 0, sizeof(buffer) - 1);
-    }
-    else {
+    } else {
         puts("WHAT THE FUCK");
     }
 }
@@ -128,10 +125,7 @@ static void send_msg_to_gateway(char *data_str, int32_t data_len) {
 static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
     memset(buffer, 0, sizeof(buffer) - 1);
     recv(fd->fd, buffer, sizeof(buffer) - 1, MSG_WAITALL);
-
     double level = strtof(buffer, NULL);
-    //printf("%f % \n", (125 - level) / 1.20);
-    //fputs(buffer, stdout);
     if (count < 10) {
         data[count] = level;
         count++;
@@ -168,48 +162,21 @@ static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
             puts("need to be on");
         }
     }
-    //fprintf(stderr, "New connection\n");
     //printf("%s", buffer);
 }
 
 
 static void server_cb(struct uloop_fd *fd, unsigned int events) {
-    /*struct client *cl;
-//    unsigned int sl = sizeof(struct sockaddr_in);
-//    int sfd;
 
-    if (!next_client)
-        next_client = calloc(1, sizeof(*next_client));
-
-    cl = next_client;
-    *//*sfd = accept(fd->fd, (struct sockaddr *) &cl->sin, &sl);
-    if (sfd < 0) {
-        fprintf(stderr, "Accept failed\n");
-        return;
-    }*//*
-
-    cl->s.stream.string_data = true;
-    cl->s.stream.notify_read = client_read_cb;
-    cl->s.stream.notify_state = client_notify_state;
-    cl->s.stream.notify_write = client_notify_write;
-    ustream_fd_init(&cl->s, fd->fd);
-    next_client = NULL;*/
-
-    //memset(buffer, 0, sizeof(buffer) - 1);
-    //recv(fd->fd, buffer, sizeof(buffer) - 1, MSG_WAITALL);
     int addr_len;
     addr_len = sizeof(struct sockaddr_in);
-    int receivedLen = recvfrom(fd->fd, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *) &gateway_addr, (socklen_t *) &addr_len);
+    int receivedLen = recvfrom(fd->fd, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *) &gateway_addr,
+                               (socklen_t *) &addr_len);
     buffer[receivedLen] = '\0';
     puts(buffer);
 
     struct json_object *parsed_json;
-    struct json_object *cmd;
-    struct json_object *model;
-    struct json_object *sid;
-    struct json_object *short_id;
     struct json_object *token;
-    struct json_object *dataStr;
 
     parsed_json = json_tokener_parse(buffer);
     const char *tempJson;
@@ -225,7 +192,7 @@ static void server_cb(struct uloop_fd *fd, unsigned int events) {
 static int run_server(void) {
 
 
-    char *multicastAddrString = "224.0.0.50"; // First arg: multicast addr (v4 or v6!)
+    char *multicastAddrString = GROUP_SERVER_ADDR; // First arg: multicast addr (v4 or v6!)
     char *service = port;             // Second arg: port/service
 
     struct addrinfo addrCriteria;                   // Criteria for address match
@@ -291,19 +258,15 @@ static int run_server(void) {
     // printf("Received: %s\n", recvString);
     printf("%s\n", buffer);*/
 
-
-
     udp_server.cb = server_cb;
     udp_server.fd = sock;
     tcp_server.cb = tcp_server_cb;
-    tcp_server.fd = usock(USOCK_TCP | USOCK_NOCLOEXEC | USOCK_IPV4ONLY | USOCK_NUMERIC, "192.168.1.195", "9000");
-    discover_sockfd = usock(USOCK_UDP | USOCK_NOCLOEXEC | USOCK_IPV4ONLY | USOCK_NUMERIC, "192.168.1.145", "9898");
+    tcp_server.fd = usock(USOCK_TCP | USOCK_NOCLOEXEC | USOCK_IPV4ONLY | USOCK_NUMERIC, DoitWiFi_Device, "9000");
+    discover_sockfd = usock(USOCK_UDP | USOCK_NOCLOEXEC | USOCK_IPV4ONLY | USOCK_NUMERIC, Lumi_Gateway, "9898");
     if (udp_server.fd < 0) {
         perror("usock");
         return 1;
     }
-
-    //ustream_fd_init(&next_client->s, server.fd);  level,site=water value=59.86
 
     uloop_init();
     uloop_fd_add(&udp_server, ULOOP_READ | ULOOP_EDGE_TRIGGER);
@@ -313,23 +276,6 @@ static int run_server(void) {
     return 0;
 }
 
-static int usage(const char *name) {
-    fprintf(stderr, "Usage: %s -p <port>\n", name);
-    return 1;
-}
-
-int main(int argc, char **argv) {
-    int ch;
-
-    while ((ch = getopt(argc, argv, "p:")) != -1) {
-        switch (ch) {
-            case 'p':
-                port = optarg;
-                break;
-            default:
-                return usage(argv[0]);
-        }
-    }
-
+int main() {
     return run_server();
 }
