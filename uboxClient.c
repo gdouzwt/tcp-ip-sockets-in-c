@@ -20,11 +20,12 @@
 
 static struct uloop_fd udp_server;
 static struct uloop_fd tcp_server;
-static char key_of_write[32];
+static  char *key_of_write;
 int discover_sockfd = -1;
 struct sockaddr_in gateway_addr;
 static char *port = "9898";
 static char buffer[512];
+char *converted;
 struct client *next_client = NULL;
 static double data[10];
 
@@ -84,13 +85,16 @@ void encryptToken(const char *plaintext) {
     EVP_EncryptUpdate(ctx, ciphertext, &cipher_length, (unsigned char *) plaintext, data_length);
     EVP_EncryptFinal_ex(ctx, ciphertext + cipher_length, &final_length);
 
+    converted = malloc(cipher_length*2 + 1);
     for (i = 0; i < cipher_length; i++){
         printf("%02X", ciphertext[i]);
+        sprintf(&converted[i * 2], "%02X", ciphertext[i]);
     }
     printf("\n");
+    printf("is it converted?: %s\n", converted);
+    key_of_write = converted;
 
     free(ciphertext);
-
     EVP_CIPHER_CTX_cleanup(ctx);
 }
 
@@ -111,7 +115,7 @@ static void send_msg_to_gateway(char *data_str, int32_t data_len) {
         gateway_addr.sin_addr.s_addr = inet_addr("192.168.1.145");
         int number = sendto(discover_sockfd, data_str, data_len, MSG_CMSG_CLOEXEC, (struct sockaddr *) &gateway_addr, sizeof(gateway_addr));
         printf("%d\n", number);
-        int receivedLen = recv(discover_sockfd, buffer, sizeof(buffer) - 1,MSG_WAITALL);
+        int receivedLen = recv(discover_sockfd, buffer, sizeof(buffer) - 1,MSG_DONTWAIT);
         buffer[receivedLen] = '\0';
         puts(buffer);
         memset(buffer, 0, sizeof(buffer) - 1);
@@ -138,26 +142,34 @@ static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
             total += data[i];
         }
         average = total / 5.0;
-        //printf("%4.2f\n", average);
+        printf("%4.2f\n", average);
         count = 0;
+        char cmd_buf[512] = {0};
         if (average < 18) { // (125 - level) / 1.2 > 90
             puts("need to be off");
             // 要关水了
+            snprintf(cmd_buf, sizeof(cmd_buf),
+                     "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}",
+                     "158d000234727c",
+                     "off",
+                     key_of_write);
+            printf("%s", "cmd to write");
 
         } else if (average > 75) {// (125 - level) / 1.2 < 30
             // 要抽水了
-            char cmd_buf[200] = {0};
             snprintf(cmd_buf, sizeof(cmd_buf),
-                     "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"channel_0\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}",
+                     "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}",
                      "158d000234727c",
                      "on",
                      key_of_write);
+            printf("%s", "cmd to write");
+            puts(cmd_buf);
             send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
             puts("need to be on");
         }
     }
     //fprintf(stderr, "New connection\n");
-    printf("%s", buffer);
+    //printf("%s", buffer);
 }
 
 
