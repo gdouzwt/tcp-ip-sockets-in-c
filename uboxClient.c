@@ -85,14 +85,15 @@ void encryptToken(const char *plaintext) {
 
     converted = malloc(cipher_length * 2 + 1);
     for (i = 0; i < cipher_length; i++) {
-        printf("%02X", ciphertext[i]);
+        //printf("%02X", ciphertext[i]);
         sprintf(&converted[i * 2], "%02X", ciphertext[i]);
     }
-    printf("\n");
-    printf("is it converted?: %s\n", converted);
+    /*printf("\n");
+    printf("is it converted?: %s\n", converted);*/
     key_of_write = converted;
 
     free(ciphertext);
+    //free(converted);
     EVP_CIPHER_CTX_cleanup(ctx);
 }
 
@@ -148,8 +149,11 @@ static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
                      "off",
                      key_of_write);
             printf("%s", "cmd to write");
+            puts(cmd_buf);
+            send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
+            puts("need to be off");
 
-        } else if (average > 75) {// (125 - level) / 1.2 < 30
+        } else if (average > 72) {// (125 - level) / 1.2 < 30
             // 要抽水了
             snprintf(cmd_buf, sizeof(cmd_buf),
                      "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}",
@@ -165,7 +169,6 @@ static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
     //printf("%s", buffer);
 }
 
-
 static void server_cb(struct uloop_fd *fd, unsigned int events) {
 
     int addr_len;
@@ -173,7 +176,7 @@ static void server_cb(struct uloop_fd *fd, unsigned int events) {
     int receivedLen = recvfrom(fd->fd, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *) &gateway_addr,
                                (socklen_t *) &addr_len);
     buffer[receivedLen] = '\0';
-    puts(buffer);
+    //puts(buffer);
 
     struct json_object *parsed_json;
     struct json_object *token;
@@ -181,20 +184,17 @@ static void server_cb(struct uloop_fd *fd, unsigned int events) {
     parsed_json = json_tokener_parse(buffer);
     const char *tempJson;
     tempJson = json_object_get_string(parsed_json);
-    if (strstr(tempJson, "token") != NULL) {
+    if (strstr(tempJson, "gateway") != NULL && strstr(tempJson, "token") != NULL) {
         json_object_object_get_ex(parsed_json, "token", &token);
-        printf("%s\n", json_object_get_string(token));
+        //printf("%s\n", json_object_get_string(token));
         const char *tokenStr = json_object_get_string(token);
         encryptToken(tokenStr);
     }
 }
 
 static int run_server(void) {
-
-
     char *multicastAddrString = GROUP_SERVER_ADDR; // First arg: multicast addr (v4 or v6!)
     char *service = port;             // Second arg: port/service
-
     struct addrinfo addrCriteria;                   // Criteria for address match
     memset(&addrCriteria, 0, sizeof(addrCriteria)); // Zero out structure
     addrCriteria.ai_family = AF_UNSPEC;             // v4 or v6 is OK
@@ -218,18 +218,7 @@ static int run_server(void) {
     if (bind(sock, multicastAddr->ai_addr, multicastAddr->ai_addrlen) < 0)
         fprintf(stdout, "%s\n", "getaddrinfo() failed");
 
-    // Unfortunately we need some address-family-specific pieces
-    if (multicastAddr->ai_family == AF_INET6) {
-        // Now join the multicast "group" (address)
-        struct ipv6_mreq joinRequest;
-        memcpy(&joinRequest.ipv6mr_multiaddr, &((struct sockaddr_in6 *)
-                multicastAddr->ai_addr)->sin6_addr, sizeof(struct in6_addr));
-        joinRequest.ipv6mr_interface = 0;   // Let system choose the i/f
-        puts("Joining IPv6 multicast group...");
-        if (setsockopt(sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
-                       &joinRequest, sizeof(joinRequest)) < 0)
-            fprintf(stdout, "%s\n", "wtf");
-    } else if (multicastAddr->ai_family == AF_INET) {
+    if (multicastAddr->ai_family == AF_INET) {
         // Now join the multicast "group"
         struct ip_mreq joinRequest;
         joinRequest.imr_multiaddr =
@@ -246,17 +235,6 @@ static int run_server(void) {
     }
     // Free address structure(s) allocated by getaddrinfo()
     freeaddrinfo(multicastAddr);
-
-    /*char recvString[512 + 1]; // Buffer to receive into
-    // Receive a single datagram from the server
-    int recvStringLen = recvfrom(sock, buffer, 512, 0, NULL, 0);
-    if (recvStringLen < 0)
-        fprintf(stdout,"%s\n","wtf");
-
-    recvString[recvStringLen] = '\0';    // Terminate the received string
-    // Note: sender did not send the terminal 0
-    // printf("Received: %s\n", recvString);
-    printf("%s\n", buffer);*/
 
     udp_server.cb = server_cb;
     udp_server.fd = sock;
