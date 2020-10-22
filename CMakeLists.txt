@@ -77,7 +77,7 @@ add_executable(client client.c DieWithMessage.c
         AddressUtility.c)
 
 add_executable(uboxClient uboxClient.c)
-target_link_libraries(uboxClient ubox)
+target_link_libraries(uboxClient ubox json-c crypto)
 
 # set(CMAKE_C_FLAGS "-Werror=deprecated-declarations")
 # target_compile_options(JsonTest PRIVATE "-Werror=deprecated-declarations")

@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
 
     recvString[recvStringLen] = '\0';    // Terminate the received string
     // Note: sender did not send the terminal 0
-//    printf("Received: %s\n", recvString);
+    // printf("Received: %s\n", recvString);
     printf("%s\n", recvString);
 
     close(sock);
