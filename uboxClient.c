@@ -19,11 +19,15 @@ static char *const DoitWiFi_Device = "192.168.1.195";
 static char *const Lumi_Gateway = "192.168.1.145";
 static struct uloop_fd udp_server;
 static struct uloop_fd tcp_server;
+struct uloop_timeout tcp_connection_timeout;
+int frequency = 5; // 5秒超时一次
 static char *key_of_write;
 int discover_sockfd = -1;
 struct sockaddr_in gateway_addr;
+struct sockaddr_in level_addr;
 static char *port = "9898";
-static char buffer[512];
+static char tcpBuffer[512] = {0};
+static char udpBuffer[512];
 char *converted;
 struct client *next_client = NULL;
 static double data[10];
@@ -39,6 +43,23 @@ struct client {
     struct ustream_fd s;
     int ctr;
 };
+
+static void timeout_cb(struct uloop_timeout *t) {
+//    int num = recv(tcp_server.fd, tcpBuffer, sizeof(tcpBuffer) - 1, 0);
+    int num = recv(tcp_server.fd, tcpBuffer, sizeof(tcpBuffer) - 1, 0);
+    //printf("len is %d\n", num);
+    if (num == 0) {
+        puts("nothing received, trying to reconnect...");
+        level_addr.sin_port = htons(9000);
+        level_addr.sin_addr.s_addr = inet_addr("192.168.1.195");
+        int isConnect = connect(tcp_server.fd, (struct sockaddr *)&level_addr, sizeof(level_addr));
+        printf("isConnected %d\n", isConnect);
+        //tcp_server.fd = usock(USOCK_TCP | USOCK_IPV4ONLY | USOCK_NUMERIC, DoitWiFi_Device, "9000");
+    }
+    puts("inside timeout");
+    printf("%s", tcpBuffer);
+    uloop_timeout_set(t, frequency * 1000);
+}
 
 int comp(const void *a, const void *b) {
     if (*(double *) a > *(double *) b) return 1;
@@ -88,22 +109,10 @@ void encryptToken(const char *plaintext) {
         //printf("%02X", ciphertext[i]);
         sprintf(&converted[i * 2], "%02X", ciphertext[i]);
     }
-    /*printf("\n");
-    printf("is it converted?: %s\n", converted);*/
     key_of_write = converted;
 
     free(ciphertext);
-    //free(converted);
     EVP_CIPHER_CTX_cleanup(ctx);
-}
-
-static void client_close(struct ustream *s) {
-    struct client *cl = container_of(s, struct client, s.stream);
-
-    fprintf(stderr, "Connection closed\n");
-    ustream_free(s);
-    close(cl->s.fd.fd);
-    free(cl);
 }
 
 static void send_msg_to_gateway(char *data_str, int32_t data_len) {
@@ -114,19 +123,20 @@ static void send_msg_to_gateway(char *data_str, int32_t data_len) {
         int number = sendto(discover_sockfd, data_str, data_len, MSG_CMSG_CLOEXEC, (struct sockaddr *) &gateway_addr,
                             sizeof(gateway_addr));
         printf("%d\n", number);
-        int receivedLen = recv(discover_sockfd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT);
-        buffer[receivedLen] = '\0';
-        puts(buffer);
-        memset(buffer, 0, sizeof(buffer) - 1);
+        int receivedLen = recv(discover_sockfd, udpBuffer, sizeof(udpBuffer) - 1, MSG_DONTWAIT);
+        udpBuffer[receivedLen] = '\0';
+        //puts(udpBuffer);
+        memset(udpBuffer, 0, sizeof(udpBuffer) - 1);
     } else {
-        puts("WHAT THE FUCK");
+        //puts("WHAT THE FUCK");
     }
 }
 
 static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
-    memset(buffer, 0, sizeof(buffer) - 1);
-    recv(fd->fd, buffer, sizeof(buffer) - 1, MSG_WAITALL);
-    double level = strtof(buffer, NULL);
+
+    recv(fd->fd, tcpBuffer, sizeof(tcpBuffer) - 1, MSG_WAITALL);
+    //printf("%d\n", num);
+    double level = strtof(tcpBuffer, NULL);
     if (count < 10) {
         data[count] = level;
         count++;
@@ -137,11 +147,11 @@ static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
             total += data[i];
         }
         average = total / 5.0;
-        printf("%4.2f\n", average);
+        //printf("%4.2f\n", average);
         count = 0;
         char cmd_buf[512] = {0};
-        if (average < 18) { // (125 - level) / 1.2 > 90
-            puts("need to be off");
+        if (average > 0 && average < 18) { // (125 - level) / 1.2 > 90
+            //puts("need to be off");
             // 要关水了
             if (key_of_write != NULL) {
                 snprintf(cmd_buf, sizeof(cmd_buf),
@@ -149,42 +159,41 @@ static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
                          "158d000234727c",
                          "off",
                          key_of_write);
-                printf("%s", "cmd to write");
-                puts(cmd_buf);
+                //printf("%s", "cmd to write");
+                //puts(cmd_buf);
                 send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
             }
 
-        } else if (average > 22) {// (125 - level) / 1.2 < 30
+        } else if (average < 125 && average > 78) {// (125 - level) / 1.2 < 30
             // 要抽水了
             if (key_of_write != NULL) {
-                puts("need to be on");
+                //puts("need to be on");
                 snprintf(cmd_buf, sizeof(cmd_buf),
                          "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}",
                          "158d000234727c",
                          "on",
                          key_of_write);
-                printf("%s", "cmd to write");
-                puts(cmd_buf);
+                //printf("%s", "cmd to write");
+                //puts(cmd_buf);
                 send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
             }
         }
     }
-    //printf("%s", buffer);
+    memset(tcpBuffer, 0, sizeof(tcpBuffer) - 1);
 }
 
 static void server_cb(struct uloop_fd *fd, unsigned int events) {
-
     int addr_len;
     addr_len = sizeof(struct sockaddr_in);
-    int receivedLen = recvfrom(fd->fd, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *) &gateway_addr,
+    int receivedLen = recvfrom(fd->fd, udpBuffer, sizeof(udpBuffer) - 1, 0, (struct sockaddr *) &gateway_addr,
                                (socklen_t *) &addr_len);
-    buffer[receivedLen] = '\0';
-    puts(buffer);
+    udpBuffer[receivedLen] = '\0';
+    //puts(udpBuffer);
 
     struct json_object *parsed_json;
     struct json_object *token;
 
-    parsed_json = json_tokener_parse(buffer);
+    parsed_json = json_tokener_parse(udpBuffer);
     const char *tempJson;
     tempJson = json_object_get_string(parsed_json);
     if (strstr(tempJson, "gateway") != NULL && strstr(tempJson, "token") != NULL) {
@@ -242,8 +251,10 @@ static int run_server(void) {
     udp_server.cb = server_cb;
     udp_server.fd = sock;
     tcp_server.cb = tcp_server_cb;
-    tcp_server.fd = usock(USOCK_TCP | USOCK_NOCLOEXEC | USOCK_IPV4ONLY | USOCK_NUMERIC, DoitWiFi_Device, "9000");
+    tcp_server.fd = usock(USOCK_TCP | USOCK_IPV4ONLY | USOCK_NUMERIC, DoitWiFi_Device, "9000");
     discover_sockfd = usock(USOCK_UDP | USOCK_NOCLOEXEC | USOCK_IPV4ONLY | USOCK_NUMERIC, Lumi_Gateway, "9898");
+    //tcp_connection_timeout.cb = timeout_cb;
+
     if (udp_server.fd < 0) {
         perror("usock");
         return 1;
@@ -252,6 +263,7 @@ static int run_server(void) {
     uloop_init();
     uloop_fd_add(&udp_server, ULOOP_READ | ULOOP_EDGE_TRIGGER);
     uloop_fd_add(&tcp_server, ULOOP_READ | ULOOP_EDGE_TRIGGER);
+    //uloop_timeout_set(&tcp_connection_timeout, frequency * 1000);
     uloop_run();
 
     return 0;
