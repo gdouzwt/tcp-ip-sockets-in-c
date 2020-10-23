@@ -13,25 +13,31 @@
 
 #define GROUP_SERVER_ADDR "224.0.0.50"
 #define UDP_SEND_PORT 9898
-
+#define OFF "off"
+#define ON "on"
+static char const *my_address = "192.168.1.1";
 static char *const DoitWiFi_Device = "192.168.1.195";
 static char *const Lumi_Gateway = "192.168.1.145";
+static char *const command_format = "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}";
+static char *const plug_sid = "158d000234727c";
+
 static struct uloop_fd udp_server;
 static struct uloop_fd tcp_server;
 static char *key_of_write;
 int discover_sockfd = -1;
 struct sockaddr_in gateway_addr;
 static char *port = "9898";
+static const char *key = "07wjrkc41typdvae";
 static char tcpBuffer[512] = {0};
-static char udpBuffer[512];
-static char udpUniBuffer[512];
-char *converted;
-struct client *next_client = NULL;
+static char udpBuffer[512] = {0};
+static char udpUniBuffer[512] = {0};
+static char converted[97] = {0};
 static double data[10];
+static struct json_object *parsed_json;
+static struct json_object *token;
 static const unsigned char m_iv[16] = {0x17, 0x99, 0x6d, 0x09, 0x3d, 0x28, 0xdd, 0xb3, 0xba, 0x69, 0x5a, 0x2e, 0x6f,
                                        0x58,
                                        0x56, 0x2e};
-static const char *key = "07wjrkc41typdvae";
 static int count = 0;
 
 int comp(const void *a, const void *b) {
@@ -77,12 +83,10 @@ void encryptToken(const char *plaintext) {
     EVP_EncryptUpdate(ctx, ciphertext, &cipher_length, (unsigned char *) plaintext, data_length);
     EVP_EncryptFinal_ex(ctx, ciphertext + cipher_length, &final_length);
 
-    converted = malloc(cipher_length * 2 + 1);
     for (i = 0; i < cipher_length; i++) {
         sprintf(&converted[i * 2], "%02X", ciphertext[i]);
     }
     key_of_write = converted;
-
     free(ciphertext);
     EVP_CIPHER_CTX_cleanup(ctx);
 }
@@ -119,19 +123,19 @@ static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
             // 要关水了
             if (key_of_write != NULL) {
                 snprintf(cmd_buf, sizeof(cmd_buf),
-                         "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}",
-                         "158d000234727c",
-                         "off",
+                         command_format,
+                         plug_sid,
+                         OFF,
                          key_of_write);
                 send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
             }
-        } else if (average < 125 && average > 78) {// (125 - level) / 1.2 < 30
+        } else if (average < 125 && average > 78) { // (125 - level) / 1.2 < 30
             // 要抽水了
             if (key_of_write != NULL) {
                 snprintf(cmd_buf, sizeof(cmd_buf),
-                         "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}",
-                         "158d000234727c",
-                         "on",
+                         command_format,
+                         plug_sid,
+                         ON,
                          key_of_write);
                 send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
             }
@@ -145,24 +149,20 @@ static void server_cb(struct uloop_fd *fd, unsigned int events) {
     addr_len = sizeof(struct sockaddr_in);
     int receivedLen = recvfrom(fd->fd, udpBuffer, sizeof(udpBuffer) - 1, 0, (struct sockaddr *) &gateway_addr,
                                (socklen_t *) &addr_len);
-    udpBuffer[receivedLen] = '\0';
-
-    struct json_object *parsed_json;
-    struct json_object *token;
-
-    parsed_json = json_tokener_parse(udpBuffer);
-    const char *tempJson;
-    tempJson = json_object_get_string(parsed_json);
-    if (strstr(tempJson, "gateway") != NULL && strstr(tempJson, "token") != NULL) {
-        json_object_object_get_ex(parsed_json, "token", &token);
-        const char *tokenStr = json_object_get_string(token);
-        encryptToken(tokenStr);
+    if (receivedLen > 0) {
+        udpBuffer[receivedLen] = '\0';
+        parsed_json = json_tokener_parse(udpBuffer);
+        if (strstr(json_object_get_string(parsed_json), "gateway") != NULL
+            && strstr(json_object_get_string(parsed_json), "token") != NULL) {
+            json_object_object_get_ex(parsed_json, "token", &token);
+            encryptToken(json_object_get_string(token));
+        }
     }
 }
 
 static int run_server(void) {
     char *multicastAddrString = GROUP_SERVER_ADDR; // First arg: multicast addr (v4 or v6!)
-    char *service = port;             // Second arg: port/service
+    char *service = port;                          // Second arg: port/service
     struct addrinfo addrCriteria;                   // Criteria for address match
     memset(&addrCriteria, 0, sizeof(addrCriteria)); // Zero out structure
     addrCriteria.ai_family = AF_UNSPEC;             // v4 or v6 is OK
@@ -192,9 +192,7 @@ static int run_server(void) {
         joinRequest.imr_multiaddr =
                 ((struct sockaddr_in *) multicastAddr->ai_addr)->sin_addr;
         //joinRequest.imr_interface.s_addr = 0;  // Let the system choose the i/f
-        char const *my_address = "192.168.1.1";
         joinRequest.imr_interface.s_addr = inet_addr(my_address);  // 这样就可以根据网卡 ip 地址选择网卡了
-        //printf("Joining IPv4 multicast group..., and what is going\n");
         if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                        &joinRequest, sizeof(joinRequest)) < 0)
             fprintf(stdout, "%s\n", "wtf");
