@@ -5,20 +5,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <json-c/json.h>
-#include <libubox/uloop.h>
-#include <libubox/usock.h>
-#include <openssl/evp.h>
+// 上面是操作系统/C标准库
+#include <json-c/json.h>  // json-c 处理 json 的，解析/生成
+#include <libubox/uloop.h>  // uloop 是一个简单的事件回环(Event Loop)框架
+#include <libubox/usock.h> // usock 是对 socket API 的简单封装
+#include <openssl/evp.h>  // openssl 加密解密相关
 
-#define GROUP_SERVER_ADDR "224.0.0.50"
-#define UDP_SEND_PORT 9898
-#define OFF "off"
-#define ON "on"
-static char const *my_address = "192.168.1.1";
-static char *const DoitWiFi_Device = "192.168.1.195";
-static char *const Lumi_Gateway = "192.168.1.145";
+#define GROUP_SERVER_ADDR "224.0.0.50" // 米家多功能网关局域网UDP通信的组播地址
+#define UDP_SEND_PORT 9898 // UDP 端口
+#define OFF "off" // 用于米家智能插座（ZigBee版）关闭指令
+#define ON "on"  // 用于米家智能插座（ZigBee版）开启指令
+static char const *my_address = "192.168.1.1";  // 路由器默认网关地址
+static char *const DoitWiFi_Device = "192.168.1.195";  // ESP8266模块的 IP
+static char *const Lumi_Gateway = "192.168.1.145";  // 米家多功能网关的 IP
+// 局域网通信协议定义的控制命令格式（JSON)
 static char *const command_format = "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}";
-static char *const plug_sid = "158d000234727c";
+static char *const plug_sid = "158d000234727c";  // ZigBee 设备 ID
 
 static struct uloop_fd udp_server;
 static struct uloop_fd tcp_server;
