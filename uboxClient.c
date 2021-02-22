@@ -22,31 +22,39 @@ static char *const Lumi_Gateway = "192.168.1.145";  // 米家多功能网关的 
 static char *const command_format = "{\"cmd\":\"write\",\"model\":\"plug\",\"sid\":\"%s\",\"data\":\"{\\\"status\\\":\\\"%s\\\",\\\"key\\\":\\\"%s\\\"}\"}";
 static char *const plug_sid = "158d000234727c";  // ZigBee 设备 ID
 
-static struct uloop_fd udp_server;
-static struct uloop_fd tcp_server;
-static char *key_of_write;
-int discover_sockfd = -1;
-struct sockaddr_in gateway_addr;
-static char *port = "9898";
-static const char *key = "07wjrkc41typdvae";
+static struct uloop_fd udp_server;  // 表示要连接的 udp 服务器，这里是米家多功能网关
+static struct uloop_fd tcp_server;  // 表示要连接的 tcp 服务器，这里是ESP8266模块
+static char *key_of_write;  // 写命令时需要的 key
+int discover_sockfd = -1;  // 发现设备？
+struct sockaddr_in gateway_addr;  // 网关地址
+static char *port = "9898";  // 端口
+static const char *key = "07wjrkc41typdvae";  // 开发者key
+
+// 缓冲区
 static char tcpBuffer[512] = {0};
 static char udpBuffer[512] = {0};
 static char udpUniBuffer[512] = {0};
+// 数据转换
 static char converted[97] = {0};
 static double data[10];
+// json数据解析
 static struct json_object *parsed_json;
 static struct json_object *token;
+// AES 对称加密的偏移向量
 static const unsigned char m_iv[16] = {0x17, 0x99, 0x6d, 0x09, 0x3d, 0x28, 0xdd, 0xb3, 0xba, 0x69, 0x5a, 0x2e, 0x6f,
                                        0x58,
                                        0x56, 0x2e};
+// 计数
 static int count = 0;
 
+// 用于快速排序
 int comp(const void *a, const void *b) {
     if (*(double *) a > *(double *) b) return 1;
     else if (*(double *) a < *(double *) b) return -1;
     else return 0;
 }
 
+// 加密token的函数
 void encryptToken(const char *plaintext) {
 
     int key_length, iv_length, data_length;
@@ -92,6 +100,7 @@ void encryptToken(const char *plaintext) {
     EVP_CIPHER_CTX_cleanup(ctx);
 }
 
+// 发送消息到网关
 static void send_msg_to_gateway(char *data_str, int32_t data_len) {
     if (-1 != discover_sockfd) {
         gateway_addr.sin_port = htons(UDP_SEND_PORT);
@@ -106,8 +115,24 @@ static void send_msg_to_gateway(char *data_str, int32_t data_len) {
 
 static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
 
-    recv(fd->fd, tcpBuffer, sizeof(tcpBuffer) - 1, MSG_WAITALL);
-    double level = strtof(tcpBuffer, NULL);
+    recv(fd->fd, tcpBuffer, sizeof(tcpBuffer) - 1, MSG_DONTWAIT);
+    //double level = strtof(tcpBuffer, NULL);
+    double level = 0.0;
+    //int level = atoi(tcpBuffer);
+    //    printf("%02X", tcpBuffer[1]);
+    //    printf("%02X\n", tcpBuffer[2]);
+    int HEAD = tcpBuffer[0] & 0xFF;
+    int Data_H = tcpBuffer[1] & 0xFF;
+    int Data_L = tcpBuffer[2] & 0xFF;
+    int SUM = tcpBuffer[3] & 0xFF;
+    //printf("%02X%02X%02X%02X\n", tcpBuffer[0] & 0xFF, tcpBuffer[1] & 0xFF, tcpBuffer[2] & 0xFF, tcpBuffer[3] & 0xFF);
+    int sum_expected = (HEAD + Data_H + Data_L) & 0x00FF;
+    if (sum_expected == SUM) {
+        //printf("Awesome!\n");
+        level = (Data_H * (1 << 8) + Data_L) / 10.0;
+        //printf("%2f\n", level);
+    }
+    //snprintf(tcpBuffer, 4, "%X %X %X %X", tcpBuffer[0], tcpBuffer[1], tcpBuffer[2], tcpBuffer[3]);
     if (count < 10) {
         data[count] = level;
         count++;
@@ -142,7 +167,7 @@ static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
             }
         }
     }
-    memset(tcpBuffer, 0, sizeof(tcpBuffer) - 1);
+    memset(tcpBuffer, 0, sizeof(tcpBuffer));
 }
 
 static void server_cb(struct uloop_fd *fd, unsigned int events) {
