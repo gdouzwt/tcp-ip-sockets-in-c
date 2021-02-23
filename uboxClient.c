@@ -145,7 +145,7 @@ static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
         average = total / 5.0;
         count = 0;
         char cmd_buf[512] = {0};
-        if ((average > 0 && average < 8) || average > 125) {  // 非常好的数字，8刚好满水
+        if ((average > 0 && average < 8) || average > 110) {  // 非常好的数字，8刚好满水
             // 要关水了
             if (key_of_write != NULL) {
                 snprintf(cmd_buf, sizeof(cmd_buf),
@@ -155,7 +155,7 @@ static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
                          key_of_write);
                 send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
             }
-        } else if (average < 115 && average > 88) {  // 88 开始抽水
+        } else if (average < 115 && average > 68) {  // 88 开始抽水
             // 要抽水了
             if (key_of_write != NULL) {
                 snprintf(cmd_buf, sizeof(cmd_buf),
