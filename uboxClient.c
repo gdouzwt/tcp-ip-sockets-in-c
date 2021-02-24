@@ -125,45 +125,50 @@ static void tcp_server_cb(struct uloop_fd *fd, unsigned int events) {
     int Data_H = tcpBuffer[1] & 0xFF;
     int Data_L = tcpBuffer[2] & 0xFF;
     int SUM = tcpBuffer[3] & 0xFF;
-    //printf("%02X%02X%02X%02X\n", tcpBuffer[0] & 0xFF, tcpBuffer[1] & 0xFF, tcpBuffer[2] & 0xFF, tcpBuffer[3] & 0xFF);
+    //disable debug
+    //printf("Hex: %02X%02X%02X%02X\n", tcpBuffer[0] & 0xFF, tcpBuffer[1] & 0xFF, tcpBuffer[2] & 0xFF,
+    //tcpBuffer[3] & 0xFF);
     int sum_expected = (HEAD + Data_H + Data_L) & 0x00FF;
     if (sum_expected == SUM) {
         //printf("Awesome!\n");
         level = (Data_H * (1 << 8) + Data_L) / 10.0;
-        //printf("%2f\n", level);
-    }
-    //snprintf(tcpBuffer, 4, "%X %X %X %X", tcpBuffer[0], tcpBuffer[1], tcpBuffer[2], tcpBuffer[3]);
-    if (count < 10) {
-        data[count] = level;
-        count++;
-    } else {
-        qsort(data, 10, sizeof(double), comp);
-        double total = 0, average;
-        for (int i = 3; i < 8; ++i) {
-            total += data[i];
-        }
-        average = total / 5.0;
-        count = 0;
-        char cmd_buf[512] = {0};
-        if ((average > 0 && average < 8) || average > 110) {  // 非常好的数字，8刚好满水
-            // 要关水了
-            if (key_of_write != NULL) {
-                snprintf(cmd_buf, sizeof(cmd_buf),
-                         command_format,
-                         plug_sid,
-                         OFF,
-                         key_of_write);
-                send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
+        //disable debug
+        //printf("level: %2f\n", level);
+
+        //snprintf(tcpBuffer, 4, "%X %X %X %X", tcpBuffer[0], tcpBuffer[1], tcpBuffer[2], tcpBuffer[3]);
+        if (count < 10) {
+            data[count] = level;
+            count++;
+        } else {
+            qsort(data, 10, sizeof(double), comp);
+            double total = 0, average;
+            for (int i = 3; i < 8; ++i) {
+                total += data[i];
             }
-        } else if (average < 115 && average > 68) {  // 88 开始抽水
-            // 要抽水了
-            if (key_of_write != NULL) {
-                snprintf(cmd_buf, sizeof(cmd_buf),
-                         command_format,
-                         plug_sid,
-                         ON,
-                         key_of_write);
-                send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
+            average = total / 5.0;
+            //disable debug printf("average: %2f\n", average);
+            count = 0;
+            char cmd_buf[512] = {0};
+            if ((average > 0 && average < 8) || average > 115) {  // 非常好的数字，8刚好满水
+                // 要关水了
+                if (key_of_write != NULL) {
+                    snprintf(cmd_buf, sizeof(cmd_buf),
+                             command_format,
+                             plug_sid,
+                             OFF,
+                             key_of_write);
+                    send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
+                }
+            } else if (average < 110 && average > 68) {  // 88 开始抽水
+                // 要抽水了
+                if (key_of_write != NULL) {
+                    snprintf(cmd_buf, sizeof(cmd_buf),
+                             command_format,
+                             plug_sid,
+                             ON,
+                             key_of_write);
+                    send_msg_to_gateway(cmd_buf, strlen(cmd_buf));
+                }
             }
         }
     }
