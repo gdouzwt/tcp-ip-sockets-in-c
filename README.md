@@ -1,4 +1,4 @@
-![TCP/IP Sockets in C](http://cs.baylor.edu/~donahoo/practical/images/cpractical2.jpg) 
+![TCP/IP Sockets in C](https://jeffdonahoo.github.io/practical/images/cpractical2.jpg)
 
 Below is the example source code from "TCP/IP Sockets in C: Practical Guide for Programmers, Second Edition" by Michael J. Donahoo and Kenneth L. Calvert. This book can be ordered at your favorite local bookstore or online.
 
